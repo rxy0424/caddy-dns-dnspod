@@ -53,3 +53,5 @@ jobs:
         asset_path: ./caddy-dnspod-${{ env.CADDY_VERSION }}.tar
         asset_name: caddy-dnspod-${{ env.CADDY_VERSION }}.tar
         asset_content_type: application/x-tar
+      env:
+        GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
