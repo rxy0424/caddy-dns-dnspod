@@ -1,0 +1,54 @@
+name: Build and Release Docker Image
+
+on:
+  push:
+    branches:
+      - master  # 推送到 master 分支时触发
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Extract Version from Dockerfile Comment
+      id: extract_version
+      run: |
+        VERSION=$(grep -oP '(?<=^# VERSION: ).+' Dockerfile | head -n 1)
+        if [ -z "$VERSION" ]; then
+          echo "Error: VERSION not found in Dockerfile."
+          exit 1
+        fi
+        echo "CADDY_VERSION=${VERSION}" >> $GITHUB_ENV
+        echo "Extracted Version: ${VERSION}"
+
+    - name: Build Docker Image
+      run: |
+        docker build --output type=docker \
+          -t caddy-dnspod:${CADDY_VERSION} \
+          -f Dockerfile .
+
+    - name: Save Docker Image to Tarball
+      run: |
+        docker save caddy-dnspod:${CADDY_VERSION} -o caddy-dnspod-${CADDY_VERSION}.tar
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      with:
+        tag_name: v${{ env.CADDY_VERSION }}  # 使用提取的版本号
+        release_name: Release v${{ env.CADDY_VERSION }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Docker Image to Release
+      uses: actions/upload-release-asset@v1
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./caddy-dnspod-${{ env.CADDY_VERSION }}.tar
+        asset_name: caddy-dnspod-${{ env.CADDY_VERSION }}.tar
+        asset_content_type: application/x-tar
+
